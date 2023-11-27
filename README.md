@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a Lua addon for LMAOBOX(https://lmaobox.net/) . The radar displays nearby enemies, allowing you to stay aware of your surroundings in-game.
+This project is a Lua addon for [LMAOBOX](https://lmaobox.net/) . The radar displays nearby enemies, allowing you to stay aware of your surroundings in-game.
 
 ## Features
 
