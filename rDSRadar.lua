@@ -1,8 +1,5 @@
 -- Inspired by Gir489 aka the god himself, Coded with love by: "https://www.youtube.com/@psychedelicsgotmegoingcrazy" 
 
-
-local RadarFont = draw.CreateFont("Tahoma Bold", 14, 800)
-
 local radar = {
     size = 300,
     x = 20,
@@ -10,76 +7,123 @@ local radar = {
     backgroundColor = {0, 0, 0, 100},
     enemyColor = {255, 255, 255, 255},
     lineColor = {225, 151, 112, 255},
-    maxDistance = 1000,
-}
+    distance = 1000
+};
+
+
+
+local TEXT_SHADOW = draw.TextShadow;
+local FILLED_RECT = draw.FilledRect;
+local SET_FONT = draw.SetFont;
+local COLOR = draw.Color;
+local LINE = draw.Line;
+
+local FLOOR = math.floor;
+local RAD = math.rad;
+local COS = math.cos;
+local SIN = math.sin;
+
+local CLAMP = function(a,b,c)return(a<b)and b or(a>c)and c or a;end;
+local STORE_COLOR = function(tbl) local r, g, b, a = tbl[1], tbl[2], tbl[3], tbl[4]; return function() COLOR(r, g, b, a); end end;
+
+
+
+local g_clrWhite = STORE_COLOR({255, 255, 255, 255});
+local g_clrBackground = STORE_COLOR(radar.backgroundColor);
+local g_clrLine = STORE_COLOR(radar.lineColor);
+local g_clrEnemy = STORE_COLOR(radar.enemyColor);
+
+local g_iHalfSize = FLOOR(radar.size / 2);
+local g_iSize = g_iHalfSize * 2;
+local g_iCenterX, g_iCenterY = radar.x + g_iHalfSize, radar.y + g_iHalfSize;
+
+local g_iFont = draw.CreateFont("Tahoma Bold", 14, 800);
+
+
+
+local DrawIcon;
+do
+    SET_FONT(g_iFont);
+
+    local cIcon = 'X';
+
+    local iCharOffsetX, iCharOffsetY = draw.GetTextSize(cIcon);
+    iCharOffsetX, iCharOffsetY = FLOOR(iCharOffsetX / 2), FLOOR(iCharOffsetY / 2);
+
+    function DrawIcon(iX, iY)
+        TEXT_SHADOW(iX - iCharOffsetX, iY - iCharOffsetY, cIcon);
+    end
+end
 
 local function drawRadar()
-    local localPlayer = entities.GetLocalPlayer();
-    if not localPlayer:IsAlive() then return end
+    local pLocalPlayer = entities.GetLocalPlayer();
 
-    local centerX = radar.x + radar.size / 2
-    local centerY = radar.y + radar.size / 2
+    if not pLocalPlayer or not pLocalPlayer:IsAlive() then
+        return;
+    end
 
-    draw.Color(radar.backgroundColor[1], radar.backgroundColor[2], radar.backgroundColor[3], radar.backgroundColor[4])
-    draw.FilledRect(radar.x, radar.y, radar.x + radar.size, radar.y + radar.size)
+    local fOriginX, fOriginY = pLocalPlayer:GetAbsOrigin():Unpack();
+    local iLocalTeam = pLocalPlayer:GetTeamNumber();
 
-    draw.Color(radar.lineColor[1], radar.lineColor[2], radar.lineColor[3], radar.lineColor[4])
-    draw.Line(centerX - radar.size / 2, centerY, centerX + radar.size / 2, centerY)
-    draw.Line(centerX, centerY - radar.size / 2, centerX, centerY + radar.size / 2)
+    local fCosRot, fSinRot;
+    do
+        local fYaw = RAD(engine.GetViewAngles().yaw - 90);
+        fCosRot, fSinRot = COS(fYaw), SIN(fYaw);
+    end
 
-    for _, ply in pairs(entities.FindByClass("CTFPlayer")) do
-        if ply ~= localPlayer and ply:IsAlive() and ply:GetTeamNumber() ~= localPlayer:GetTeamNumber() then
-            local playerPos = ply:GetAbsOrigin()
+    g_clrBackground();
+    FILLED_RECT(radar.x, radar.y, radar.x + g_iSize, radar.y + g_iSize);
 
-            local dx = playerPos.x - localPlayer:GetAbsOrigin().x
-            local dy = playerPos.y - localPlayer:GetAbsOrigin().y
+    g_clrLine();
+    LINE(g_iCenterX - g_iHalfSize, g_iCenterY, g_iCenterX + g_iHalfSize, g_iCenterY)
+    LINE(g_iCenterX, g_iCenterY - g_iHalfSize, g_iCenterX, g_iCenterY + g_iHalfSize)
 
-            local distance = math.sqrt(dx * dx + dy * dy)
+    g_clrEnemy();
 
-            if distance <= radar.maxDistance then
-                local rotatedX = centerX + (dx / radar.maxDistance) * (radar.size / 2)
-                local rotatedY = centerY - (dy / radar.maxDistance) * (radar.size / 2)
+    local aPlayers = entities.FindByClass("CTFPlayer");
+    aPlayers[pLocalPlayer:GetIndex()] = nil;
+    for _, pPlayer in pairs(aPlayers) do
+        if pPlayer:IsAlive() and pPlayer:GetTeamNumber() ~= iLocalTeam then
+            
+            local fDX, fDY = pPlayer:GetAbsOrigin():Unpack();
+            fDX, fDY = fDX - fOriginX, fDY - fOriginY;
 
-                local rotation = engine.GetViewAngles().yaw + 270
+            DrawIcon(
+                FLOOR(g_iCenterX + CLAMP((fDX * fCosRot + fDY * fSinRot) / radar.distance, -1, 1) * g_iHalfSize), 
+                FLOOR(g_iCenterY - CLAMP((fDY * fCosRot - fDX * fSinRot) / radar.distance, -1, 1) * g_iHalfSize)
+            );
 
-                local rotatedXFinal = centerX + (rotatedX - centerX) * math.cos(math.rad(rotation)) - (rotatedY - centerY) * math.sin(math.rad(rotation))
-                local rotatedYFinal = centerY + (rotatedX - centerX) * math.sin(math.rad(rotation)) + (rotatedY - centerY) * math.cos(math.rad(rotation))
-
-                local color = radar.enemyColor
-                draw.Color(color[1], color[2], color[3], color[4])
-
-                local text = "X"
-                local textWidth, textHeight = draw.GetTextSize(text, RadarFont)
-                local textX = rotatedXFinal - textWidth / 2
-                local textY = rotatedYFinal - textHeight / 2
-
-                draw.TextShadow(math.floor(textX), math.floor(textY), text, RadarFont)
-            end
         end
     end
 end
 
-callbacks.Register("Draw", drawRadar)
+local aRecords = {};
+local iMaxRecords = 256;
+local fAverage = 0;
 
-local current_fps = 0
-local current_tickrate = 0
-
-local function watermark()
-    draw.SetFont(RadarFont)
-    draw.Color(255, 255, 255, 255)
-
-    if globals.FrameCount() % 100 == 0 then
-        current_fps = math.floor(1 / globals.FrameTime())
-        current_tickrate = math.floor(1 / globals.TickInterval())
-    end
-
-    local screen_width, _ = draw.GetScreenSize()
-    local text_width, text_height = draw.GetTextSize("[reLuaStorm | fps: " .. current_fps .. " | tickrate: " .. current_tickrate .. "]")
-    
-    local x = screen_width - text_width - 5
-    local y = 5
-
-    draw.Text(x, y, "[reLuaStorm | fps: " .. current_fps .. " | tickrate: " .. current_tickrate .. "]")
+for i = 1, iMaxRecords do
+    aRecords[i] = 0;
 end
 
-callbacks.Register("Draw", "draw", watermark)
+local function watermark()
+    g_clrWhite();
+
+    local iRecordIndex = globals.FrameCount() % iMaxRecords + 1;
+
+    fAverage = fAverage - aRecords[iRecordIndex];
+    aRecords[iRecordIndex] = globals.FrameTime() / iMaxRecords;
+    fAverage = fAverage + aRecords[iRecordIndex];
+    
+    local sWatermarkText = ("[reLuaStorm] | Fps: %0.0f | Tps: %0.02f"):format(1 / fAverage, 1 / globals.TickInterval());
+
+    local screen_width, _ = draw.GetScreenSize()
+    local text_width, text_height = draw.GetTextSize(sWatermarkText)
+
+    draw.Text(screen_width - text_width - 5, 5, sWatermarkText)
+end
+
+callbacks.Register("Draw", function()
+    SET_FONT(g_iFont)
+    drawRadar();
+    watermark();
+end)
