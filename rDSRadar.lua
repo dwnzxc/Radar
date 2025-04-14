@@ -1,4 +1,4 @@
--- Inspired by Gir489 aka the god himself, Coded with love by: "https://www.youtube.com/@psychedelicsgotmegoingcrazy" 
+-- Inspired by Gir489, Coded with love by: "https://www.youtube.com/@psychedelicsgotmegoingcrazy" 
 
 local radar = {
     size = 300,
